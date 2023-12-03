@@ -22,6 +22,7 @@ public class ModCreativeModeTabs {
                     .displayItems((pParameters, pOutput) -> {
                         pOutput.accept(ModItems.SALTED_BUTTER.get());
                         pOutput.accept(ModBlocks.COOKING_POT.get());
+                        pOutput.accept(ModItems.GOLDEN_HARVEST_LOAF.get());
                     })
                     .build());
 

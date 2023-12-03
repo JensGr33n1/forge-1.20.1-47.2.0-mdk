@@ -13,6 +13,8 @@ public class ModItems {
 
     public static final RegistryObject<Item> SALTED_BUTTER = ITEMS.register( "salted_butter",
             () -> new Item(new Item.Properties().food(ModFoods.SALTED_BUTTER)));
+    public static final RegistryObject<Item> GOLDEN_HARVEST_LOAF = ITEMS.register( "golden_harvest_loaf",
+            () -> new Item(new Item.Properties().food(ModFoods.GOLDEN_HARVEST_LOAF)));
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);

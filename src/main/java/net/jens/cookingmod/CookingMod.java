@@ -45,9 +45,12 @@ public class CookingMod {
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if(event.getTabKey() == CreativeModeTabs.FOOD_AND_DRINKS)
+        if (event.getTabKey() == CreativeModeTabs.FOOD_AND_DRINKS) {
             event.accept(ModItems.SALTED_BUTTER);
+            event.accept(ModItems.GOLDEN_HARVEST_LOAF);
+        }
     }
+
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event)
     {

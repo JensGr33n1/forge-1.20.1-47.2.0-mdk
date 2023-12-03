@@ -2,12 +2,10 @@ package net.jens.cookingmod.block.custom;
 
 import it.unimi.dsi.fastutil.objects.Object2FloatMap;
 import it.unimi.dsi.fastutil.objects.Object2FloatOpenHashMap;
-//import net.jens.cookingmod.block.entity.CookingPotBlockEntity;
 import net.jens.cookingmod.block.entity.CookingPotBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -32,73 +30,88 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Optional;
+
 public class CookingPotBlock extends BaseEntityBlock{
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty LEVEL = IntegerProperty.create("level", 0, 5); // Define levels for your cooking pot
+    private static final VoxelShape SHAPE = Block.box(2, 0, 2, 14, 12, 14);
     public static final Object2FloatMap<ItemLike> INGREDIENTS = new Object2FloatOpenHashMap<>(); // Define ingredients and their properties
 
+    static {
+        INGREDIENTS.put(Items.CARROT, 1.0F);
+        INGREDIENTS.put(Items.POTATO, 1.0F);
+        INGREDIENTS.put(Items.WHEAT, 1.0F);
+        INGREDIENTS.put(Items.PUMPKIN, 1.0F);
+        INGREDIENTS.put(Items.SUGAR, 1.0F);
+        INGREDIENTS.put(Items.BROWN_MUSHROOM, 1.0F);
+        INGREDIENTS.put(Items.EGG, 1.0F);
+        INGREDIENTS.put(Items.SALMON, 1.0F);
+        INGREDIENTS.put(Items.BEEF, 1.0F);
+        INGREDIENTS.put(Items.HONEY_BOTTLE, 1.0F);
+        INGREDIENTS.put(Items.MILK_BUCKET, 1.0F);
+        INGREDIENTS.put(Items.APPLE, 1.0F);
+    }
     public CookingPotBlock(Properties pProperties) {
 
         super(pProperties);
         this.registerDefaultState(this.stateDefinition.any().setValue(LEVEL, Integer.valueOf(0)));
-        INGREDIENTS.put(Items.CARROT, 1.0F); // Assuming each carrot adds one layer
-        INGREDIENTS.put(Items.POTATO, 1.0F); // Assuming each carrot adds one layer
     }
-    private static final VoxelShape SHAPE = Block.box(2, 0, 2, 14, 12, 14);
-
     @Override
     public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         ItemStack itemStack = player.getItemInHand(hand);
 
-        // Check if the item in the player's hand is a valid ingredient
-        if (INGREDIENTS.containsKey(itemStack.getItem())) {
-            int currentLevel = state.getValue(LEVEL);
-            BlockEntity be = world.getBlockEntity(pos);
+        // Early return if the item in hand is not a valid ingredient
+        if (!INGREDIENTS.containsKey(itemStack.getItem())) {
+            return InteractionResult.PASS;
+        }
 
-            // Check if the cooking pot is not already full (assuming a max level of 5)
-            if (currentLevel < 5) {
-                if (!world.isClientSide) {
-                    // Retrieve our cooking pot block entity
-                    if (be instanceof CookingPotBlockEntity) {
-                        CookingPotBlockEntity cookingPot = (CookingPotBlockEntity) be;
-                        int level = cookingPot.getStoredLevel(); // Access the level
-                        ItemStackHandler items = cookingPot.getInventory();
+        return processInteraction(world, pos, player, itemStack, state);
+    }
 
-                        // Find an empty slot in the cooking pot's inventory
-                        for (int i = 0; i < items.getSlots(); i++) {
-                            if (items.getStackInSlot(i).isEmpty()) {
-                                // Add the item to the cooking pot's inventory
-                                items.setStackInSlot(i, new ItemStack(itemStack.getItem(), 1));
-
-                                // Shrink the player's item stack by one
-                                if (!player.getAbilities().instabuild) {
-                                    itemStack.shrink(1);
-                                }
-
-                                // Update the block state to reflect the new level
-                                world.setBlock(pos, state.setValue(LEVEL, currentLevel + 1), 3);
-
-                                // Play sound effect and any other effects
-                                playSoundEffect(world, pos, currentLevel);
-
-                                // Mark the block entity as changed
-                                cookingPot.setChanged();
-
-                                // Return success
-                                return InteractionResult.sidedSuccess(world.isClientSide);
-                            }
-                        }
-                    }
-                } else {
-                    // Client-side particle effect and hand animation
-                    playComposterParticleEffect(world, pos);
-                }
+    private InteractionResult processInteraction(Level world, BlockPos pos, Player player, ItemStack itemStack, BlockState state) {
+        Optional<CookingPotBlockEntity> maybePot = getPotEntity(world, pos);
+        if (maybePot.isPresent()) {
+            if (!world.isClientSide) {
+                return handleServerInteraction(maybePot.get(), player, itemStack, world, pos, state);
+            } else {
+                playParticleEffect(world, pos);
+                return InteractionResult.SUCCESS;
             }
         }
         return InteractionResult.PASS;
     }
 
-    private void playComposterParticleEffect(Level world, BlockPos pos) {
+    private Optional<CookingPotBlockEntity> getPotEntity(Level world, BlockPos pos) {
+        BlockEntity blockEntity = world.getBlockEntity(pos);
+        return blockEntity instanceof CookingPotBlockEntity ? Optional.of((CookingPotBlockEntity) blockEntity) : Optional.empty();
+    }
+
+    private InteractionResult handleServerInteraction(CookingPotBlockEntity cookingPot, Player player, ItemStack itemStack, Level world, BlockPos pos, BlockState state) {
+        ItemStackHandler inventory = cookingPot.getInventory();
+
+        for (int i = 0; i < inventory.getSlots(); i++) {
+            if (inventory.getStackInSlot(i).isEmpty()) {
+                inventory.setStackInSlot(i, new ItemStack(itemStack.getItem(), 1));
+                if (!player.getAbilities().instabuild) {
+                    itemStack.shrink(1);
+                }
+
+                updateCookingPotState(cookingPot, world, pos, state);
+                return InteractionResult.sidedSuccess(world.isClientSide);
+            }
+        }
+        return InteractionResult.PASS;
+    }
+
+    private void updateCookingPotState(CookingPotBlockEntity cookingPot, Level world, BlockPos pos, BlockState state) {
+        cookingPot.updateLevel();
+        int newLevel = cookingPot.getStoredLevel();
+        world.setBlock(pos, state.setValue(LEVEL, newLevel), 3);
+        playSoundEffect(world, pos, newLevel);
+        cookingPot.setChanged();
+    }
+    private void playParticleEffect(Level world, BlockPos pos) {
         double d0 = 0.5D + 0.03125D; // Adjust the height as needed for your block
         RandomSource randomsource = world.getRandom();
 
@@ -106,12 +119,14 @@ public class CookingPotBlock extends BaseEntityBlock{
             double d3 = randomsource.nextGaussian() * 0.02D;
             double d4 = randomsource.nextGaussian() * 0.02D;
             double d5 = randomsource.nextGaussian() * 0.02D;
-            world.addParticle(ParticleTypes.COMPOSTER, pos.getX() + 0.13125D + 0.7375D * randomsource.nextFloat(), pos.getY() + d0 + randomsource.nextFloat() * (1.0D - d0), pos.getZ() + 0.13125D + 0.7375D * randomsource.nextFloat(), d3, d4, d5);
+            world.addParticle(ParticleTypes.SMOKE, pos.getX() + 0.13125D + 0.7375D * randomsource.nextFloat(), pos.getY() + d0 + randomsource.nextFloat() * (1.0D - d0), pos.getZ() + 0.13125D + 0.7375D * randomsource.nextFloat(), d3, d4, d5);
         }
+        world.addParticle(ParticleTypes.COMPOSTER, pos.getX() + 0.13125D + 0.7375D * randomsource.nextFloat(), pos.getY() + d0 + randomsource.nextFloat() * (1.0D - d0), pos.getZ() + 0.13125D + 0.7375D * randomsource.nextFloat(), 0.02, 0.02, 0.02);
     }
     private void playSoundEffect(Level world, BlockPos pos, int currentLevel) {
         float pitch = 1.0F + 0.5F * currentLevel;
-        world.playSound(null, pos, SoundEvents.SNIFFER_EGG_PLOP, SoundSource.BLOCKS, 1.0F, pitch);
+        world.playSound(null, pos, SoundEvents.CANDLE_EXTINGUISH, SoundSource.BLOCKS, 3.0F, pitch);
+        world.playSound(null, pos, SoundEvents.BUCKET_EMPTY_TADPOLE, SoundSource.BLOCKS, 1.0F, pitch);
     }
 
     @Override
