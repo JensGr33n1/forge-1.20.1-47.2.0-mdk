@@ -1,42 +1,56 @@
-/*package net.jens.cookingmod.block.entity;
+package net.jens.cookingmod.block.entity;
 
-import net.jens.cookingmod.block.custom.CookingPotBlock;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.level.Level;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.items.ItemStackHandler;
 
-import java.util.ArrayList;
-import java.util.List;
+import javax.management.openmbean.CompositeData;
 
 public class CookingPotBlockEntity extends BlockEntity {
-    private List<Item> ingredients = new ArrayList<>();
-    public CookingPotBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-        super(type, pos, state);
+    private int level = 0;  // Level field to keep track of items added
+    private final ItemStackHandler itemHandler = new ItemStackHandler(5){ // 5 slots
+    @Override
+    protected void onContentsChanged(int slot) {
+        super.onContentsChanged(slot);
+        updateLevel(); // Update level when contents change
     }
-    public void addIngredient(Item ingredient, Level world, BlockPos pos) {
-        if (this.ingredients.size() < 5) {
-            this.ingredients.add(ingredient);
+};
+    public CookingPotBlockEntity(BlockPos pPos, BlockState pBlockState) {
+        super(ModBlockEntities.COOKING_POT_BE.get(), pPos, pBlockState);
+    }
+    @Override
+    public void load(CompoundTag tag) {
+        super.load(tag);
+        if (tag.contains("Inventory")) {
+            itemHandler.deserializeNBT(tag.getCompound("Inventory"));
+        }
+        level = tag.getInt("Level"); // Load level from NBT
+    }
 
-            BlockState state = world.getBlockState(pos);
-            int currentLevel = state.getValue(CookingPotBlock.LEVEL);
-            if (currentLevel < 5) {
-                world.setBlock(pos, state.setValue(CookingPotBlock.LEVEL, currentLevel + 1), 3);
+    @Override
+    protected void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        tag.put("Inventory", itemHandler.serializeNBT());
+        tag.putInt("Level", level); // Save level to NBT
+    }
+
+    public ItemStackHandler getInventory() {
+        return itemHandler;
+    }
+    private void updateLevel() {
+        level = 0;
+        for (int i = 0; i < itemHandler.getSlots(); i++) {
+            if (!itemHandler.getStackInSlot(i).isEmpty()) {
+                level++; // Increase level for each non-empty slot
             }
         }
-    }
-    @Override
-    protected void saveAdditional(CompoundTag compound) {
-        super.saveAdditional(compound);
-        // Serialize the ingredients list to NBT
+        setChanged(); // Notify that the block entity's data has changed
     }
 
-    @Override
-    public void load(CompoundTag nbt) {
-        super.load(nbt);
-        // Deserialize the ingredients list from NBT
+    public int getStoredLevel() {
+        return level;
     }
-}*/
+}

@@ -3,6 +3,7 @@ package net.jens.cookingmod;
 import com.mojang.logging.LogUtils;
 import net.jens.cookingmod.block.ModBlocks;
 //import net.jens.cookingmod.block.entity.ModBlockEntities;
+import net.jens.cookingmod.block.entity.ModBlockEntities;
 import net.jens.cookingmod.item.ModCreativeModeTabs;
 import net.jens.cookingmod.item.ModItems;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -33,7 +34,7 @@ public class CookingMod {
 
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
-        //ModBlockEntities.register(modEventBus);
+        ModBlockEntities.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
         
